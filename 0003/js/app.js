@@ -738,6 +738,7 @@ window.ODP = window.ODP || {};
     $('#btnSync').onclick = () => openSync();
     $('#syncPick').onclick = () => pickFolder();
     $('#syncScan').onclick = () => doScan();
+    $('#syncReset').onclick = () => doResetBaseline();
     $('#syncExecute').onclick = () => doExecute();
     $('#syncExportZip').onclick = () => doExportZip();
     $('#syncImportZipBtn').onclick = () => $('#syncImportZip').click();
@@ -837,6 +838,7 @@ window.ODP = window.ODP || {};
         syncState.dirHandle = h;
         $('#syncFolderName').textContent = h.name + (supports ? '' : ' (this browser cannot re-open it)');
         $('#syncScan').disabled = false;
+        $('#syncReset').hidden = false;
         if (supports && typeof h.queryPermission === 'function') {
           const p = await h.queryPermission({ mode: 'readwrite' });
           if (p !== 'granted') {
@@ -988,6 +990,29 @@ window.ODP = window.ODP || {};
     } catch (e) {
       logError('Local sync failed', friendlyFsError(e));
     }
+  }
+
+  // Escape hatch: forget what the last sync thought the state was. Useful when
+  // the plan looks wrong (e.g. it offers a pull for a file that was just pushed,
+  // which would overwrite the local edit). Deletes nothing on either side.
+  async function doResetBaseline() {
+    if (!syncState.dirHandle) return;
+    const ok = await confirmModal('Reset the sync baseline?',
+      'Forgets what the last synchronised state was. Nothing is deleted from Drive or your folder, ' +
+      'but the next scan re-derives everything from both sides and may report more differences. ' +
+      'Use this when the plan looks wrong.');
+    if (!ok) return;
+    const doneOk = await ODP.sync.clearManifest(syncState.dirHandle.name);
+    syncState.scan = null;
+    $('#syncList').innerHTML = '';
+    $('#syncSummary').textContent = '';
+    $('#syncExecute').disabled = true;
+    const prog = $('#syncProgress');
+    prog.hidden = false;
+    prog.textContent = doneOk
+      ? 'Baseline cleared — run "Scan & Preview Sync" again to re-derive the state.'
+      : 'Could not clear the baseline.';
+    toast(doneOk ? 'Baseline cleared.' : 'Could not clear the baseline.');
   }
 
   async function doExportZip() {

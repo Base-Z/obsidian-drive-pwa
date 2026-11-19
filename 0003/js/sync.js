@@ -349,8 +349,13 @@ window.ODP = window.ODP || {};
     const remote = state.remote || await remoteTree();
     const remoteByPath = new Map(remote.map(r => [r.path, r]));
     const local = state.local || new Map();
-    const newEntries = {};
-    for (const [p, e] of baseline) newEntries[p] = e;
+
+    // Only paths that are actually AGREED by the end of this run may enter the
+    // baseline. Recording an unresolved path as if the local copy had won makes
+    // the next scan offer a spurious pull — and accepting that pull would
+    // overwrite the very edits that were waiting to be pushed.
+    const reconciled = new Set();
+    for (const item of plan) if (item.action === 'none') reconciled.add(item.path);
 
     const items = plan.filter(p => p.selected && p.action !== 'none');
     let done = 0;
@@ -364,6 +369,7 @@ window.ODP = window.ODP || {};
           let bytes = await ODP.drive.getBytes(rec.id);
           if (isTextPath(path)) bytes = normaliseLF(bytes);   // write LF locally
           await writeLocalFile(dirHandle, path, bytes);
+          reconciled.add(path);
         } else if (item.action === 'push') {
           if (item.lockedByOther) { done++; onProgress && onProgress(done, total, item, 'skipped (locked)'); continue; }
           const l = local.get(path);
@@ -376,6 +382,7 @@ window.ODP = window.ODP || {};
             await ODP.drive.createFile(path.split('/').pop(), parent,
               text, isTextPath(path) ? 'text/markdown' : 'application/octet-stream');
           }
+          reconciled.add(path);
         } else if (item.action === 'conflict') {
           const rec = remoteByPath.get(path);
           const l = local.get(path);
@@ -387,6 +394,7 @@ window.ODP = window.ODP || {};
               if (isTextPath(path)) bytes = normaliseLF(bytes);
               await writeLocalFile(dirHandle, path, bytes);
             }
+            reconciled.add(path);
           } else if (choice === 'local') {
             // The user explicitly chose their local version — publish it.
             if (l) {
@@ -396,16 +404,23 @@ window.ODP = window.ODP || {};
               else await ODP.drive.createFile(path.split('/').pop(), await parentIdFor(path), text,
                      isTextPath(path) ? 'text/markdown' : 'application/octet-stream');
             }
+            reconciled.add(path);
           } else {
             // Default, and the safest: never overwrite — keep both side by side.
+            // The original path stays divergent, so it is deliberately NOT
+            // marked reconciled: the next scan must still report it.
+            const localName = conflictName(path, 'Local');
+            const remoteName = conflictName(path, 'Remote');
             if (l) {
-              await ODP.drive.createFile(conflictName(path, 'Local').split('/').pop(), await parentIdFor(path),
+              await ODP.drive.createFile(localName.split('/').pop(), await parentIdFor(path),
                 new TextDecoder().decode(normaliseLF(l.bytes)));
+              reconciled.add(localName);
             }
             if (rec) {
               let bytes = await ODP.drive.getBytes(rec.id);
               if (isTextPath(path)) bytes = normaliseLF(bytes);
-              await writeLocalFile(dirHandle, conflictName(path, 'Remote'), bytes);
+              await writeLocalFile(dirHandle, remoteName, bytes);
+              reconciled.add(remoteName);
             }
           }
         }
@@ -415,25 +430,44 @@ window.ODP = window.ODP || {};
       }
     }
 
-    // Refresh the baseline from what is now on both sides.
+    // Rebuild the baseline from scratch, for reconciled paths only.
     const after = await readLocalTree(dirHandle);
     const remoteAfter = await remoteTree();
     const remoteAfterByPath = new Map(remoteAfter.map(r => [r.path, r]));
-    for (const path of new Set([...after.keys(), ...remoteAfterByPath.keys()])) {
+    const newEntries = buildBaselineEntries(after, remoteAfterByPath, reconciled);
+    const saved = await saveManifest(key, newEntries);
+    return { done, total, manifestSaved: saved, baselineCount: Object.keys(newEntries).length };
+  }
+
+  // Forget the baseline so the next scan re-derives the true state from both
+  // sides instead of trusting a stale (or wrong) record.
+  async function clearManifest(dirName) {
+    const key = manifestKey(dirName);
+    try { await ODP.store.syncman.del(key); return true; } catch (e) { return false; }
+  }
+
+  // Pure: derive the baseline from the state AFTER a run, for reconciled paths
+  // only. Extracted so the rule can be tested without a Drive connection — it is
+  // exactly the logic that previously recorded unresolved paths as if local won.
+  function buildBaselineEntries(after, remoteByPath, reconciled) {
+    const entries = {};
+    for (const path of new Set([...after.keys(), ...remoteByPath.keys()])) {
       if (ODP.config.isExcluded(path)) continue;
+      if (!reconciled.has(path)) continue;         // unresolved — stays out
       const l = after.get(path);
-      const r = remoteAfterByPath.get(path);
-      if (!l && !r) { delete newEntries[path]; continue; }
-      newEntries[path] = {
+      const r = remoteByPath.get(path);
+      if (!l && !r) continue;
+      entries[path] = {
         fileId: r ? r.id : null,
-        rawMd5: l ? l.hash.md5 : (r ? r.md5Checksum : null),
+        // Record the REMOTE hash: that is what Drive reports back, so the fast
+        // path matches without downloading anything.
+        rawMd5: r ? r.md5Checksum : (l ? l.hash.md5 : null),
         normSha: l ? l.hash.sha256Norm : undefined,
         remoteMtime: r ? r.modifiedTime : null,
         localMtime: l ? l.mtime : null
       };
     }
-    const saved = await saveManifest(key, newEntries);
-    return { done, total, manifestSaved: saved, baselineCount: Object.keys(newEntries).length };
+    return entries;
   }
 
   // Resolve (creating if needed) the Drive folder id for a vault-relative path,
@@ -529,6 +563,8 @@ window.ODP = window.ODP || {};
     manifestKey,
     loadManifest,
     saveManifest,
+    clearManifest,
+    buildBaselineEntries,
     conflictName,
     markerBytes
   };
