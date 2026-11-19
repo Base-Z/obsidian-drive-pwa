@@ -39,6 +39,7 @@ window.ODP = window.ODP || {};
         // after silent renewal — signIn() prompts only if silence is
         // impossible. Any unsaved edit is safe: it is autosaved to IndexedDB.
         ODP.auth.accessToken = null;
+        try { ODP.store.meta.del('accessToken'); } catch (e) {}
         if (ODP.app && ODP.app.sessionExpired) ODP.app.sessionExpired();
         if (attempt < 1) return this._fetch(url, opts, attempt + 1);
         throw new Error('unauthorized');

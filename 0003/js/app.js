@@ -577,11 +577,35 @@ window.ODP = window.ODP || {};
   // A failure leaves sandbox mode untouched and prompts nothing.
   async function resumeDrive() {
     try {
+      // 1. A still-valid persisted token — no network, no popup.
+      if (await ODP.auth.restore()) {
+        localStorage.setItem('odp3Connected', '1');
+        await loadDrive();
+        return;
+      }
+      // 2. Silent renewal (no UI).
       await ODP.auth.renewSilently();
+      localStorage.setItem('odp3Connected', '1');
       await loadDrive();
     } catch (e) {
-      updateAuthUi();   // stay in sandbox; the user can tap Sign in
+      updateAuthUi();   // stay in sandbox
+      // A silent renewal needs a user gesture to open its (invisible) popup,
+      // so retry once on the first touch/click rather than making the user
+      // hunt for the Sign in button.
+      if (!ODP.auth.isSignedIn()) armGestureResume();
     }
+  }
+
+  let gestureResumeArmed = false;
+  function armGestureResume() {
+    if (gestureResumeArmed) return;
+    gestureResumeArmed = true;
+    const handler = () => {
+      document.removeEventListener('pointerdown', handler);
+      gestureResumeArmed = false;
+      if (!ODP.auth.isSignedIn()) resumeDrive();
+    };
+    document.addEventListener('pointerdown', handler, { passive: true });
   }
 
   // First-run onboarding (spec §2.4): seed the brand-new vault with a small set
@@ -735,9 +759,18 @@ window.ODP = window.ODP || {};
     loadSandbox();
     showErrBar();   // restore any error logged before a reload
     // Resume a previous Drive session — silently, and only if the user has
-    // connected before. Never prompts on boot.
-    if (!isLanIpOrigin() && ODP.auth.isConfigured() && localStorage.getItem('odp3Connected') === '1') {
-      resumeDrive();
+    // connected before (or a still-valid token was saved). Never prompts here.
+    if (!isLanIpOrigin() && ODP.auth.isConfigured()) {
+      (async () => {
+        let connected = localStorage.getItem('odp3Connected') === '1';
+        if (!connected) {
+          try {
+            const saved = await ODP.store.getMeta('accessToken', null);
+            connected = !!(saved && saved.value && Date.now() < saved.expiresAt - 30000);
+          } catch (e) {}
+        }
+        if (connected) { localStorage.setItem('odp3Connected', '1'); resumeDrive(); }
+      })();
     }
     if ('serviceWorker' in navigator) {
       try { navigator.serviceWorker.register('./sw.js').catch(() => {}); } catch (e) {}

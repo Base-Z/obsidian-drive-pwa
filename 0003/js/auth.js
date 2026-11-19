@@ -57,6 +57,11 @@ window.ODP = window.ODP || {};
           if (resp && resp.access_token) {
             this.accessToken = resp.access_token;
             this.expiresAt = Date.now() + ((resp.expires_in ? +resp.expires_in : 3600) * 1000);
+            // Persist so a reload can resume without a prompt while the token
+            // is still valid (GIS tokens last ~1 hour).
+            try {
+              ODP.store.meta.set('accessToken', { value: this.accessToken, expiresAt: this.expiresAt });
+            } catch (e) {}
             cb.resolve(this.accessToken);
           } else {
             // Surface everything Google gives us — on a phone this is the only
@@ -104,6 +109,23 @@ window.ODP = window.ODP || {};
       }
     },
 
+    // Restore a still-valid token saved by a previous session — no network, no
+    // popup. This is what makes "close the window and reopen" not ask to log in
+    // again while the token is still good (~1 hour).
+    async restore() {
+      if (this.isSignedIn()) return true;
+      try {
+        const saved = await ODP.store.getMeta('accessToken', null);
+        if (saved && saved.value && Date.now() < saved.expiresAt - 30000) {
+          this.accessToken = saved.value;
+          this.expiresAt = saved.expiresAt;
+          this._emit('restored');
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    },
+
     // Silent renewal ONLY — never opens UI. Used on app boot to resume a
     // previous session without a tap; throws so the caller can fall back to
     // sandbox mode quietly.
@@ -122,6 +144,8 @@ window.ODP = window.ODP || {};
         try { window.google.accounts.oauth2.revoke(this.accessToken, () => {}); } catch (e) {}
       }
       this.accessToken = null; this.expiresAt = 0;
+      try { ODP.store.meta.del('accessToken'); } catch (e) {}
+      try { localStorage.removeItem('odp3Connected'); } catch (e) {}
       this._emit('signed-out');
     }
   };
