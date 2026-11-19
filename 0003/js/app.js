@@ -533,14 +533,34 @@ window.ODP = window.ODP || {};
     }
   }
 
+  // Google cannot register a raw IP address as an OAuth origin, so sign-in can
+  // only ever work from the public origin. Detect the LAN address and say so
+  // plainly instead of letting Google answer with a bare `origin_mismatch`.
+  function isLanIpOrigin() {
+    const h = location.hostname;
+    // Google exempts localhost IPs, so those are fine even though they're IPs.
+    if (h === 'localhost' || h === '[::1]' || h === '::1' || /^127\./.test(h)) return false;
+    return /^\d{1,3}(\.\d{1,3}){3}$/.test(h);
+  }
+
   function updateAuthUi() {
     const btn = $('#btnAuth');
     if (ODP.auth.isSignedIn()) { btn.textContent = 'Signed in'; btn.classList.remove('primary'); }
+    else if (isLanIpOrigin()) { btn.textContent = 'Sign in (public URL only)'; btn.classList.remove('primary');
+      btn.title = 'Google sign-in requires https://base-z.github.io — a raw IP cannot be registered.'; }
     else if (!ODP.auth.isConfigured()) { btn.textContent = 'Drive: not configured'; btn.title = 'Add a Google OAuth client id in js/config.js'; }
     else { btn.textContent = 'Sign in to Drive'; btn.classList.add('primary'); }
   }
 
   async function connectDrive() {
+    if (isLanIpOrigin()) {
+      logError('Google sign-in is not available from the LAN address.',
+        'You are on ' + location.origin + '. Google rejects raw IP addresses as OAuth origins ' +
+        '(only localhost is exempt), so sign in from the public URL instead:\n' +
+        'https://base-z.github.io/obsidian-drive-pwa/0003/');
+      toast('Sign in from the public URL — see the red bar below.', true);
+      return;
+    }
     if (!ODP.auth.isConfigured()) {
       toast('No OAuth client id yet — sandbox mode. See the project Execution Log.', true);
       return;
