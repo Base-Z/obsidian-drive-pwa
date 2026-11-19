@@ -589,11 +589,46 @@ window.ODP = window.ODP || {};
       await loadDrive();
     } catch (e) {
       updateAuthUi();   // stay in sandbox
+      // Log WHY — otherwise the failure is invisible and undebuggable.
+      let saved = null;
+      try { saved = await ODP.store.getMeta('accessToken', null); } catch (e2) {}
+      logError('Could not resume the Drive session',
+        'reason: ' + ((e && e.message) || e) +
+        '\nconnected flag: ' + localStorage.getItem('odp3Connected') +
+        '\nsaved token: ' + (saved && saved.value ? 'present (expires ' + new Date(saved.expiresAt).toLocaleString() + ')' : 'none') +
+        '\norigin: ' + location.origin);
       // A silent renewal needs a user gesture to open its (invisible) popup,
       // so retry once on the first touch/click rather than making the user
       // hunt for the Sign in button.
       if (!ODP.auth.isSignedIn()) armGestureResume();
     }
+  }
+
+  // Screen-readable diagnostics. Tapping ⓘ puts this in the persistent error
+  // bar so it can be read and screenshotted from a phone.
+  async function diagnostics() {
+    let saved = null;
+    try { saved = await ODP.store.getMeta('accessToken', null); } catch (e) {}
+    const ua = navigator.userAgent || '';
+    const inApp = /Telegram|FBAN|FBAV|Instagram|Line\/|wv\)/.test(ua);
+    const lines = [
+      'origin: ' + location.origin,
+      'path: ' + location.pathname,
+      'mode: ' + state.mode,
+      'secure ctx: ' + window.isSecureContext,
+      'connected flag: ' + (localStorage.getItem('odp3Connected') || 'not set'),
+      'token in memory: ' + (ODP.auth.isSignedIn() ? 'valid' : 'none/expired'),
+      'token in storage: ' + (saved && saved.value
+        ? 'present, expires ' + new Date(saved.expiresAt).toLocaleString()
+        : 'none'),
+      'indexedDB: ' + (state.storageOff ? 'UNAVAILABLE' : 'ok'),
+      'client id set: ' + ODP.auth.isConfigured(),
+      'standalone app: ' + (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true),
+      'in-app browser: ' + (inApp ? 'LIKELY — storage may not persist' : 'no'),
+      'sw controlling: ' + !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+      'UA: ' + ua.slice(0, 90)
+    ];
+    logError('Diagnostics', lines.join('\n'));
   }
 
   let gestureResumeArmed = false;
@@ -687,6 +722,7 @@ window.ODP = window.ODP || {};
     $('#btnMenu').onclick = () => { $('#sidebar').classList.toggle('open'); $('#rightbar').classList.remove('open'); };
     $('#btnRight').onclick = () => { $('#rightbar').classList.toggle('open'); $('#sidebar').classList.remove('open'); };
     $('#btnAuth').onclick = connectDrive;
+    $('#btnDiag').onclick = () => diagnostics();
 
     $('#btnQuick').onclick = () => { openModal('modalQuick'); const i = $('#quickInput'); i.value = ''; runQuick(''); i.focus(); };
     $('#quickInput').oninput = (e) => runQuick(e.target.value);
