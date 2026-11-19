@@ -280,7 +280,7 @@ window.ODP = window.ODP || {};
       if (/(^|\/)\.pwa-vault-root\.json$/.test(rec.path)) continue;
       out.push({ id: rec.id, path: rec.path, md5Checksum: rec.md5Checksum, name: rec.name,
                  mimeType: rec.mimeType, headRevisionId: rec.headRevisionId,
-                 modifiedTime: rec.modifiedTime, properties: rec.properties || {} });
+                 modifiedTime: rec.modifiedTime, size: rec.size, properties: rec.properties || {} });
     }
     // Fill in normalised hashes only where the raw hash disagrees with the
     // baseline — CRLF-safety without downloading the whole vault.
@@ -377,18 +377,36 @@ window.ODP = window.ODP || {};
               text, isTextPath(path) ? 'text/markdown' : 'application/octet-stream');
           }
         } else if (item.action === 'conflict') {
-          // Never overwrite: keep both, side by side.
           const rec = remoteByPath.get(path);
           const l = local.get(path);
-          if (l) {
-            const parent = rec ? (rec.parents && rec.parents[0]) || await parentIdFor(path) : await parentIdFor(path);
-            await ODP.drive.createFile(conflictName(path, 'Local').split('/').pop(), parent,
-              new TextDecoder().decode(normaliseLF(l.bytes)));
-          }
-          if (rec) {
-            let bytes = await ODP.drive.getBytes(rec.id);
-            if (isTextPath(path)) bytes = normaliseLF(bytes);
-            await writeLocalFile(dirHandle, conflictName(path, 'Remote'), bytes);
+          const choice = item.resolution || 'both';
+          if (choice === 'remote') {
+            // The user explicitly chose the Drive version — take it wholesale.
+            if (rec) {
+              let bytes = await ODP.drive.getBytes(rec.id);
+              if (isTextPath(path)) bytes = normaliseLF(bytes);
+              await writeLocalFile(dirHandle, path, bytes);
+            }
+          } else if (choice === 'local') {
+            // The user explicitly chose their local version — publish it.
+            if (l) {
+              const text = isTextPath(path)
+                ? new TextDecoder().decode(normaliseLF(l.bytes)) : l.bytes;
+              if (rec) await ODP.drive.updateFile(rec.id, text);
+              else await ODP.drive.createFile(path.split('/').pop(), await parentIdFor(path), text,
+                     isTextPath(path) ? 'text/markdown' : 'application/octet-stream');
+            }
+          } else {
+            // Default, and the safest: never overwrite — keep both side by side.
+            if (l) {
+              await ODP.drive.createFile(conflictName(path, 'Local').split('/').pop(), await parentIdFor(path),
+                new TextDecoder().decode(normaliseLF(l.bytes)));
+            }
+            if (rec) {
+              let bytes = await ODP.drive.getBytes(rec.id);
+              if (isTextPath(path)) bytes = normaliseLF(bytes);
+              await writeLocalFile(dirHandle, conflictName(path, 'Remote'), bytes);
+            }
           }
         }
         onProgress && onProgress(++done, total, item, 'done');

@@ -812,6 +812,13 @@ window.ODP = window.ODP || {};
               'delete-local': 'Delete local', 'delete-remote': 'Delete remote', none: 'No change' })[a] || a;
   }
 
+  function fmtBytes(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1048576).toFixed(1) + ' MB';
+  }
+
   async function openSync() {
     const supports = ODP.sync.supportsDirectoryPicker();
     $('#syncIntro').textContent = supports
@@ -887,6 +894,27 @@ window.ODP = window.ODP || {};
       txt.appendChild(el('div', 'plan-path', item.path));
       txt.appendChild(el('div', 'plan-why',
         item.reason + (item.lockedByOther ? '  ·  locked by another device — will be skipped' : '')));
+      if (item.action === 'conflict') {
+        // Without an explicit choice the only safe option is to keep both, which
+        // is why copies accumulated. Let the user decide which version wins.
+        item.resolution = item.resolution || 'both';
+        const sel = document.createElement('select');
+        sel.className = 'resolve';
+        for (const [v, label] of [['both', 'Keep both (2 copies)'],
+                                  ['remote', 'Take the Drive version'],
+                                  ['local', 'Keep my local version']]) {
+          const o = document.createElement('option');
+          o.value = v; o.textContent = label; sel.appendChild(o);
+        }
+        sel.value = item.resolution;
+        sel.onchange = () => { item.resolution = sel.value; };
+        txt.appendChild(sel);
+        txt.appendChild(el('div', 'plan-why',
+          'local ' + fmtBytes(item.local && item.local.bytes && item.local.bytes.length) +
+          '  ·  drive ' + fmtBytes(item.remote && item.remote.size) +
+          (item.remote && item.remote.modifiedTime
+            ? '  ·  drive changed ' + new Date(item.remote.modifiedTime).toLocaleString() : '')));
+      }
       li.appendChild(txt);
       list.appendChild(li);
     }

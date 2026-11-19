@@ -15,7 +15,7 @@ window.ODP = window.ODP || {};
 
   const API = 'https://www.googleapis.com/drive/v3';
   const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
-  const FIELDS = 'nextPageToken, files(id, name, mimeType, parents, modifiedTime, md5Checksum, headRevisionId, trashed, properties)';
+  const FIELDS = 'nextPageToken, files(id, name, mimeType, parents, modifiedTime, size, md5Checksum, headRevisionId, trashed, properties)';
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 

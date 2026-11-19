@@ -243,6 +243,9 @@ textarea.editor {
 .plan-text { min-width: 0; }
 .plan-path { font-size: .86rem; word-break: break-all; }
 .plan-why { color: var(--muted); font-size: .74rem; }
+select.resolve { margin-top: 6px; width: 100%; max-width: 260px;
+  background: #0a0f1f; color: var(--fg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 8px; font: inherit; font-size: .78rem; }
 
 /* ---------- persistent error bar ---------- */
 .errbar { position: fixed; left: 0; right: 0; bottom: 26px; z-index: 55;
