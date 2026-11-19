@@ -31,7 +31,8 @@ body.odp {
   border-bottom: 1px solid var(--line);
   min-width: 0;
 }
-.topbar .brand { font-weight: 700; letter-spacing: .2px; white-space: nowrap; }
+.topbar .brand { font-weight: 700; letter-spacing: .2px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
 .topbar .brand span { color: var(--accent); }
 .vault-badge {
   font-size: .72rem; color: #cdd6ee; background: rgba(124,139,255,.14);
@@ -281,12 +282,14 @@ textarea.editor {
   .topbar .brand span { display: none; }
   .tbtn .lbl { display: none; }
 }
+@media (max-width: 900px) {
+  .topbar .brand { display: none; }
+}
 /* Phone widths: let the toolbar shrink instead of overflowing the page.
    Without this the document scrolls sideways — the buttons cannot shrink
    below their content by default. */
 @media (max-width: 760px) {
   .topbar { gap: 6px; padding: 0 6px; overflow: hidden; }
-  .topbar .brand { display: none; }
   .vault-badge { max-width: 32vw; }
   .tbtn { padding: 7px 9px; font-size: .78rem; }
   #btnAuth { max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
