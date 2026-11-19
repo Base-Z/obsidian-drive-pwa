@@ -611,6 +611,16 @@ window.ODP = window.ODP || {};
     try { saved = await ODP.store.getMeta('accessToken', null); } catch (e) {}
     const ua = navigator.userAgent || '';
     const inApp = /Telegram|FBAN|FBAV|Instagram|Line\/|wv\)/.test(ua);
+    let syncInfo = 'no folder chosen';
+    try {
+      const h = await ODP.store.handles.get('localDir');
+      if (h) {
+        const key = ODP.sync.manifestKey(h.name);
+        const m = await ODP.sync.loadManifest(key);
+        syncInfo = h.name + ' · key=' + key + ' · baseline=' +
+                   (m ? Object.keys(m).length + ' entr(ies)' : 'NONE — every run re-classifies from scratch');
+      }
+    } catch (e) { syncInfo = 'error: ' + ((e && e.message) || e); }
     const lines = [
       'origin: ' + location.origin,
       'path: ' + location.pathname,
@@ -623,6 +633,8 @@ window.ODP = window.ODP || {};
         : 'none'),
       'indexedDB: ' + (state.storageOff ? 'UNAVAILABLE' : 'ok'),
       'client id set: ' + ODP.auth.isConfigured(),
+      'vault root id: ' + (ODP.drive.rootVaultFolderId || 'not set'),
+      'sync: ' + syncInfo,
       'standalone app: ' + (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true),
       'in-app browser: ' + (inApp ? 'LIKELY — storage may not persist' : 'no'),
       'sw controlling: ' + !!(navigator.serviceWorker && navigator.serviceWorker.controller),
@@ -911,7 +923,8 @@ window.ODP = window.ODP || {};
       }
       syncState.mode = 'directory';
       syncState.scan = res;
-      prog.textContent = 'Compared ' + res.local.size + ' local file(s) with Drive.';
+      prog.textContent = 'Compared ' + res.local.size + ' local file(s) with Drive · baseline: ' +
+        (res.baselineCount ? res.baselineCount + ' file(s)' : 'none yet — this is the first run');
       renderPlan();
       if (!res.plan.some(i => i.action !== 'none')) toast('Already in sync — nothing to do.');
     } catch (e) {
@@ -933,7 +946,11 @@ window.ODP = window.ODP || {};
       let r;
       if (syncState.mode === 'zip') r = await ODP.sync.executeImport(syncState.scan.plan, cb);
       else r = await ODP.sync.executeDirectory(syncState.dirHandle, syncState.scan, syncState.scan.plan, cb);
-      prog.textContent = 'Finished: ' + r.done + ' of ' + r.total + ' processed.';
+      prog.textContent = 'Finished: ' + r.done + ' of ' + r.total + ' processed.' +
+        (r.manifestSaved === false
+          ? '  ⚠ The baseline could NOT be saved — re-running may create duplicate conflict copies. ' +
+            'Tap ⓘ and send me the diagnostics.'
+          : (r.baselineCount != null ? '  Baseline saved (' + r.baselineCount + ' files).' : ''));
       toast('Sync complete.');
       if (syncState.mode === 'directory') {
         // Mark the folder so future runs skip the legacy-vault guard.

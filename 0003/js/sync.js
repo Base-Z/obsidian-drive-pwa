@@ -137,8 +137,14 @@ window.ODP = window.ODP || {};
     } catch (e) { return null; }
   }
   async function saveManifest(key, entries) {
-    try { await ODP.store.syncman.set({ id: key, entries, updatedAt: new Date().toISOString() }); }
-    catch (e) { /* manifest is an optimisation; losing it causes a re-scan, not data loss */ }
+    try {
+      await ODP.store.syncman.set(key, { id: key, entries, updatedAt: new Date().toISOString() });
+      return true;
+    } catch (e) {
+      // Losing the baseline is NOT harmless: every run then re-classifies from
+      // scratch and re-creates conflict copies. Surface it.
+      return false;
+    }
   }
 
   // ---------- fetch a remote file's bytes (text files only, for CRLF checks) ----------
@@ -188,7 +194,7 @@ window.ODP = window.ODP || {};
         if (l && !r) { plan.push({ path, action: 'push', reason: 'New on local' }); continue; }
         if (r && !l) { plan.push({ path, action: 'pull', reason: 'New on remote' }); continue; }
         if (l && r) {
-          if (matchesBaseline(l.hash, { rawMd5: r.md5Checksum, normSha: r.normSha }, path)) {
+          if (matchesBaseline(l.hash, { rawMd5: r.md5Checksum, normSha: r.sha256Norm }, path)) {
             plan.push({ path, action: 'none', reason: 'Identical' });
           } else {
             plan.push({ path, action: 'conflict', reason: 'Differs on both sides (no baseline)', remote: r, local: l });
@@ -281,14 +287,20 @@ window.ODP = window.ODP || {};
     return out;
   }
 
-  async function baselineNeedsRemoteNormalised(remote, baseline) {
+  // Which remote text files need their *normalised* hash before a decision can
+  // be made safely?
+  //   • with a baseline: the raw hash differs from the recorded one
+  //   • without one:    a local copy exists whose raw hash differs
+  // Without this, a first sync sees CRLF-vs-LF as a difference and invents a
+  // conflict copy for a file that is actually identical.
+  function needsRemoteNormalised(remote, baseline, local) {
     const need = [];
     for (const r of remote) {
       if (!isTextPath(r.path)) continue;
       const b = baseline && baseline.get(r.path);
-      if (!b) continue;
-      if (r.md5Checksum === b.rawMd5) continue;      // fast path: identical
-      need.push(r);
+      if (b) { if (r.md5Checksum !== b.rawMd5) need.push(r); continue; }
+      const l = local && local.get(r.path);
+      if (l && l.hash && l.hash.md5 !== r.md5Checksum) need.push(r);
     }
     return need;
   }
@@ -321,12 +333,13 @@ window.ODP = window.ODP || {};
     }
 
     const remote = await remoteTree();
-    for (const r of await baselineNeedsRemoteNormalised(remote, baseline)) {
+    for (const r of needsRemoteNormalised(remote, baseline, local)) {
       const h = await remoteHash(r, true);
       r.sha256Norm = h.sha256Norm;
     }
     const plan = classify(local, remote, baseline, opts || {});
-    return { plan, key, dirName: dirHandle.name, local, baseline, remote, markerPresent };
+    return { plan, key, dirName: dirHandle.name, local, baseline, remote, markerPresent,
+             baselineCount: baseline ? baseline.size : 0 };
   }
 
   // ---------- execute ----------
@@ -401,8 +414,8 @@ window.ODP = window.ODP || {};
         localMtime: l ? l.mtime : null
       };
     }
-    await saveManifest(key, newEntries);
-    return { done, total };
+    const saved = await saveManifest(key, newEntries);
+    return { done, total, manifestSaved: saved, baselineCount: Object.keys(newEntries).length };
   }
 
   // Resolve (creating if needed) the Drive folder id for a vault-relative path,

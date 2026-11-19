@@ -74,7 +74,10 @@ window.ODP = window.ODP || {};
     handles: kv('handles'),
     notes: obj('notes'),
     drafts: obj('drafts'),
-    syncman: obj('syncman'),
+    // `syncman` is created WITHOUT a keyPath (see the upgrade block above), so
+    // it takes an explicit key — wrapping it as a keyPath store made every
+    // write throw DataError and silently lose the sync baseline.
+    syncman: kv('syncman'),
 
     async getMeta(k, dflt) {
       const v = await this.meta.get(k);
