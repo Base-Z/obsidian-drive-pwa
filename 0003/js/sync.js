@@ -67,11 +67,30 @@ window.ODP = window.ODP || {};
     return window.showDirectoryPicker({ id: 'odp-vault', mode: 'readwrite', startIn: 'documents' });
   }
 
+  // A persisted handle loses its permission between visits, and on Android it
+  // is not remembered at all. It must be re-requested from a user gesture, or
+  // entries()/getFile() throw NotAllowedError ("The request is not allowed by
+  // the user agent or the platform in the current context").
+  async function ensurePermission(dirHandle, mode) {
+    mode = mode || 'readwrite';
+    if (!dirHandle) return false;
+    if (typeof dirHandle.queryPermission !== 'function') return true;   // older implementation
+    try {
+      if (await dirHandle.queryPermission({ mode }) === 'granted') return true;
+      return (await dirHandle.requestPermission({ mode })) === 'granted';
+    } catch (e) { return false; }
+  }
+
   // ---------- local filesystem adapter ----------
   async function readLocalTree(dirHandle) {
     const files = new Map();
     async function walk(dir, prefix) {
-      for await (const [name, entry] of dir.entries()) {
+      // entries() yields [name, handle]; values() yields only handles.
+      const useEntries = typeof dir.entries === 'function';
+      const iter = useEntries ? dir.entries() : dir.values();
+      for await (const item of iter) {
+        const name = useEntries ? item[0] : item.name;
+        const entry = useEntries ? item[1] : item;
         const rel = prefix ? prefix + '/' + name : name;
         if (ODP.config.isExcluded(rel)) continue;          // spec §4.2 exclusions
         if (entry.kind === 'directory') { await walk(entry, rel); continue; }
@@ -283,6 +302,13 @@ window.ODP = window.ODP || {};
 
   // ---------- scan ----------
   async function scanDirectory(dirHandle, opts) {
+    // Re-request permission first — a restored handle has none, and this call
+    // is inside the user's click, which is the only time it's permitted.
+    if (!(await ensurePermission(dirHandle))) {
+      const err = new Error('permission');
+      err.code = 'PERMISSION';
+      throw err;
+    }
     const key = manifestKey(dirHandle.name);
     const baselineEntries = await loadManifest(key);
     const baseline = await buildBaselineMap(baselineEntries);
@@ -455,6 +481,7 @@ window.ODP = window.ODP || {};
   ODP.sync = {
     supportsDirectoryPicker,
     pickDirectory,
+    ensurePermission,
     readLocalTree,
     writeLocalFile,
     deleteLocalFile,

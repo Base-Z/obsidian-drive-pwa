@@ -818,6 +818,14 @@ window.ODP = window.ODP || {};
         syncState.dirHandle = h;
         $('#syncFolderName').textContent = h.name + (supports ? '' : ' (this browser cannot re-open it)');
         $('#syncScan').disabled = false;
+        if (supports && typeof h.queryPermission === 'function') {
+          const p = await h.queryPermission({ mode: 'readwrite' });
+          if (p !== 'granted') {
+            $('#syncHint').textContent = 'Access to "' + h.name + '" has to be confirmed again — Chrome does not ' +
+              'remember folder permission between visits. Tap "Scan & Preview Sync" to confirm it now, or ' +
+              '"Choose folder…" to pick it again.';
+          }
+        }
       }
     } catch (e) {}
     openModal('modalSync');
@@ -873,6 +881,20 @@ window.ODP = window.ODP || {};
     updateExecuteBtn();
   }
 
+  // Chrome/Android refuse access to a restored folder until it is re-confirmed
+  // by a tap — the raw DOMException is meaningless to a user.
+  function friendlyFsError(e) {
+    const m = (e && e.message) || String(e);
+    if ((e && e.code === 'PERMISSION') ||
+        (e && e.name === 'NotAllowedError') ||
+        /not allowed by the user agent|request is not allowed/i.test(m)) {
+      return 'Chrome needs you to re-confirm access to the folder (it is not remembered between ' +
+             'visits, especially on Android). Tap "Choose folder…" and pick it again.';
+    }
+    if (e && e.name === 'AbortError') return 'Cancelled.';
+    return m;
+  }
+
   async function doScan() {
     if (!syncState.dirHandle) return;
     const prog = $('#syncProgress');
@@ -894,7 +916,7 @@ window.ODP = window.ODP || {};
       if (!res.plan.some(i => i.action !== 'none')) toast('Already in sync — nothing to do.');
     } catch (e) {
       prog.textContent = 'Scan failed.';
-      logError('Local sync scan failed', (e && e.message) || String(e));
+      logError('Local sync scan failed', friendlyFsError(e));
     }
   }
 
@@ -919,7 +941,7 @@ window.ODP = window.ODP || {};
         await doScan();
       }
     } catch (e) {
-      logError('Local sync failed', (e && e.message) || String(e));
+      logError('Local sync failed', friendlyFsError(e));
     }
   }
 
