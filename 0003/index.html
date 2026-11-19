@@ -16,6 +16,8 @@
   <!-- Shared status bar (project 0000). Template: ../shared/statusbar.js — edit there to update all apps. -->
   <script src="../shared/statusbar.js" defer></script>
 <script src="./vendor/katex/katex.min.js" defer></script>
+<script src="./vendor/spark-md5/spark-md5.min.js" defer></script>
+<script src="./vendor/fflate/fflate.min.js" defer></script>
 <script src="./js/config.js"></script>
 <script src="./js/store.js" defer></script>
 <script src="./js/lock.js" defer></script>
@@ -24,6 +26,7 @@
 <script src="./js/demo.js" defer></script>
 <script src="./js/auth.js" defer></script>
 <script src="./js/drive.js" defer></script>
+<script src="./js/sync.js" defer></script>
 <script src="./js/app.js" defer></script>
 </head>
 <body class="odp">
@@ -37,6 +40,7 @@
     <button class="tbtn" id="btnQuick" title="Quick switcher (Ctrl/Cmd+O)">🔍 <span class="lbl">Open</span></button>
     <button class="tbtn" id="btnSearch" title="Search (Ctrl/Cmd+Shift+F)">⌕ <span class="lbl">Search</span></button>
     <button class="tbtn" id="btnRight" title="Links & tags">⇥</button>
+    <button class="tbtn" id="btnSync" title="Local vault sync">⇅ <span class="lbl">Sync</span></button>
     <button class="tbtn icon-only" id="btnDiag" title="Diagnostics">ⓘ</button>
     <button class="tbtn primary" id="btnAuth">Sign in to Drive</button>
   </div>
@@ -107,6 +111,36 @@
     <div class="actions">
       <button class="tbtn" data-close="modalConfirm">Cancel</button>
       <button class="tbtn primary" id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Local Vault Sync (spec §5.3) — entirely user-triggered, never background. -->
+<div class="modal-back" id="modalSync">
+  <div class="modal" role="dialog" aria-label="Local vault sync">
+    <h3>Local Vault Sync</h3>
+    <p class="note-sub" id="syncIntro">Sync this vault with a local Obsidian folder, on demand.</p>
+
+    <div class="sync-folder">
+      <button class="tbtn primary" id="syncPick">Choose folder…</button>
+      <span id="syncFolderName" class="rp-empty">No folder selected</span>
+    </div>
+    <p class="note-sub" id="syncHint"></p>
+
+    <div class="sync-actions">
+      <button class="tbtn" id="syncScan" disabled>Scan &amp; Preview Sync</button>
+      <button class="tbtn" id="syncExportZip">Export ZIP…</button>
+      <button class="tbtn" id="syncImportZipBtn">Import ZIP…</button>
+      <input type="file" id="syncImportZip" accept=".zip,application/zip" hidden>
+    </div>
+
+    <div id="syncProgress" class="sync-progress" hidden></div>
+    <div id="syncSummary" class="sync-summary"></div>
+    <ul class="result-list plan" id="syncList"></ul>
+
+    <div class="actions">
+      <button class="tbtn" data-close="modalSync">Close</button>
+      <button class="tbtn primary" id="syncExecute" disabled>Execute selected</button>
     </div>
   </div>
 </div>

@@ -206,7 +206,7 @@ textarea.editor {
 .modal-back { position: fixed; inset: 0; background: rgba(4,7,15,.66); display: none;
   align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; z-index: 50; }
 .modal-back.open { display: flex; }
-.modal { width: min(620px, 100%); background: #121a30; border: 1px solid var(--line);
+.modal { width: min(620px, 100%); min-width: 0; background: #121a30; border: 1px solid var(--line);
   border-radius: 16px; padding: 18px 20px; box-shadow: 0 24px 60px rgba(0,0,0,.5); max-height: 80vh; overflow: auto; }
 .modal h3 { margin: 0 0 12px; font-size: 1.05rem; }
 .modal input[type=text], .modal input[type=search] {
@@ -218,7 +218,30 @@ textarea.editor {
 .result-list .rt { font-weight: 600; font-size: .92rem; }
 .result-list .rp { color: var(--faint); font-size: .74rem; }
 .result-list .rs { color: var(--muted); font-size: .78rem; margin-top: 2px; }
-.modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+/* ---------- local vault sync ---------- */
+.sync-folder { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }
+.sync-folder span { font-size: .82rem; color: var(--muted); word-break: break-all; }
+.sync-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.sync-progress { font-size: .8rem; color: var(--muted); white-space: pre-wrap;
+  background: rgba(255,255,255,.04); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+.sync-summary { font-size: .84rem; margin: 10px 0 6px; }
+.sync-summary .grp { margin-right: 12px; white-space: nowrap; }
+.result-list.plan li { display: flex; gap: 9px; align-items: flex-start; cursor: default; }
+.result-list.plan li:hover { background: none; }
+.result-list.plan input[type=checkbox] { margin-top: 3px; flex: 0 0 auto; }
+.plan-badge { flex: 0 0 auto; font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 7px; border-radius: 6px; text-transform: uppercase; }
+.badge-pull { background: rgba(76,194,255,.16); color: #8fd0ff; }
+.badge-push { background: rgba(74,222,128,.16); color: #86e3a6; }
+.badge-conflict { background: rgba(246,185,59,.18); color: #f6c766; }
+.badge-delete-local, .badge-delete-remote { background: rgba(251,113,133,.18); color: #ff9fb1; }
+.badge-none { background: rgba(255,255,255,.07); color: var(--faint); }
+.badge-locked { background: rgba(246,185,59,.18); color: #f6c766; }
+.plan-text { min-width: 0; }
+.plan-path { font-size: .86rem; word-break: break-all; }
+.plan-why { color: var(--muted); font-size: .74rem; }
 
 /* ---------- persistent error bar ---------- */
 .errbar { position: fixed; left: 0; right: 0; bottom: 26px; z-index: 55;
@@ -258,3 +281,15 @@ textarea.editor {
   .topbar .brand span { display: none; }
   .tbtn .lbl { display: none; }
 }
+/* Phone widths: let the toolbar shrink instead of overflowing the page.
+   Without this the document scrolls sideways — the buttons cannot shrink
+   below their content by default. */
+@media (max-width: 760px) {
+  .topbar { gap: 6px; padding: 0 6px; overflow: hidden; }
+  .topbar .brand { display: none; }
+  .vault-badge { max-width: 32vw; }
+  .tbtn { padding: 7px 9px; font-size: .78rem; }
+  #btnAuth { max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+.topbar > * { min-width: 0; }
+.spacer { min-width: 0; }

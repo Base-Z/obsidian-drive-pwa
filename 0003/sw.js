@@ -8,7 +8,7 @@
    Precaches the app shell, shared assets, KaTeX and fonts so the app
    launches and renders notes offline. Bump VERSION on changes.
    ============================================================ */
-const VERSION = 'v9';
+const VERSION = 'v10';
 const CACHE = 'odp3-' + VERSION;
 
 const SCOPE = self.registration.scope;
@@ -28,9 +28,12 @@ const PRECACHE = [
   P('js/demo.js'),
   P('js/auth.js'),
   P('js/drive.js'),
+  P('js/sync.js'),
   P('js/app.js'),
   P('vendor/katex/katex.min.js'),
   P('vendor/katex/katex.min.css'),
+  P('vendor/spark-md5/spark-md5.min.js'),
+  P('vendor/fflate/fflate.min.js'),
   SHARED('app.css'),
   SHARED('statusbar.js'),
   P('icons/icon-192.png'),

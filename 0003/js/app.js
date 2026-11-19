@@ -723,6 +723,17 @@ window.ODP = window.ODP || {};
     $('#btnRight').onclick = () => { $('#rightbar').classList.toggle('open'); $('#sidebar').classList.remove('open'); };
     $('#btnAuth').onclick = connectDrive;
     $('#btnDiag').onclick = () => diagnostics();
+    $('#btnSync').onclick = () => openSync();
+    $('#syncPick').onclick = () => pickFolder();
+    $('#syncScan').onclick = () => doScan();
+    $('#syncExecute').onclick = () => doExecute();
+    $('#syncExportZip').onclick = () => doExportZip();
+    $('#syncImportZipBtn').onclick = () => $('#syncImportZip').click();
+    $('#syncImportZip').onchange = (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) doImportZip(f);
+      e.target.value = '';
+    };
 
     $('#btnQuick').onclick = () => { openModal('modalQuick'); const i = $('#quickInput'); i.value = ''; runQuick(''); i.focus(); };
     $('#quickInput').oninput = (e) => runQuick(e.target.value);
@@ -779,6 +790,173 @@ window.ODP = window.ODP || {};
       const r = ev.reason;
       logError('Unhandled rejection: ' + ((r && (r.message || r)) || 'unknown'));
     });
+  }
+
+  // ---------------- local vault sync UI (spec §5.3) ----------------
+  const syncState = { dirHandle: null, scan: null, mode: 'directory' };
+
+  function actionLabel(a) {
+    return ({ pull: 'Pull', push: 'Push', conflict: 'Conflict',
+              'delete-local': 'Delete local', 'delete-remote': 'Delete remote', none: 'No change' })[a] || a;
+  }
+
+  async function openSync() {
+    const supports = ODP.sync.supportsDirectoryPicker();
+    $('#syncIntro').textContent = supports
+      ? 'Sync this vault with a local Obsidian folder, on demand. Nothing runs in the background.'
+      : 'This browser has no File System Access API, so use the ZIP export/import path instead.';
+    $('#syncPick').hidden = !supports;
+    $('#syncHint').textContent = supports
+      ? 'Pick a dedicated subfolder (e.g. Documents/ObsidianVault-New). Android will not let you pick the root of internal storage.'
+      : 'Export a ZIP, unzip it into your Obsidian vault folder; then import a ZIP back to push changes up.';
+    $('#syncList').innerHTML = '';
+    $('#syncSummary').textContent = '';
+    $('#syncExecute').disabled = true;
+    try {
+      const h = await ODP.store.handles.get('localDir');
+      if (h) {
+        syncState.dirHandle = h;
+        $('#syncFolderName').textContent = h.name + (supports ? '' : ' (this browser cannot re-open it)');
+        $('#syncScan').disabled = false;
+      }
+    } catch (e) {}
+    openModal('modalSync');
+  }
+
+  async function pickFolder() {
+    try {
+      const h = await ODP.sync.pickDirectory();
+      syncState.dirHandle = h;
+      try { await ODP.store.handles.set('localDir', h); } catch (e) {}
+      $('#syncFolderName').textContent = h.name;
+      $('#syncScan').disabled = false;
+      toast('Folder connected: ' + h.name);
+    } catch (e) {
+      if (e && (e.name === 'AbortError' || /abort/i.test(e.message || ''))) return;  // user cancelled
+      logError('Could not open the folder picker', (e && e.message) || String(e));
+    }
+  }
+
+  function updateExecuteBtn() {
+    const plan = (syncState.scan && syncState.scan.plan) || [];
+    const n = plan.filter(i => i.selected && i.action !== 'none' && !i.lockedByOther).length;
+    $('#syncExecute').disabled = n === 0;
+    $('#syncExecute').textContent = 'Execute selected (' + n + ')';
+  }
+
+  function renderPlan() {
+    const list = $('#syncList'); list.innerHTML = '';
+    const plan = (syncState.scan && syncState.scan.plan) || [];
+    const counts = {};
+    for (const i of plan) counts[i.action] = (counts[i.action] || 0) + 1;
+    $('#syncSummary').textContent = Object.entries(counts)
+      .map(([k, v]) => actionLabel(k) + ': ' + v).join('   ·   ') || 'Nothing to do.';
+    const order = ['conflict', 'delete-local', 'delete-remote', 'pull', 'push', 'none'];
+    for (const item of [...plan].sort((a, b) => order.indexOf(a.action) - order.indexOf(b.action))) {
+      const li = el('li');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      const selectable = item.action !== 'none' && !item.lockedByOther;
+      cb.checked = selectable;
+      cb.disabled = !selectable;
+      item.selected = selectable;
+      cb.onchange = () => { item.selected = cb.checked; updateExecuteBtn(); };
+      li.appendChild(cb);
+      li.appendChild(el('span', 'plan-badge badge-' + item.action, actionLabel(item.action)));
+      const txt = el('div', 'plan-text');
+      txt.appendChild(el('div', 'plan-path', item.path));
+      txt.appendChild(el('div', 'plan-why',
+        item.reason + (item.lockedByOther ? '  ·  locked by another device — will be skipped' : '')));
+      li.appendChild(txt);
+      list.appendChild(li);
+    }
+    updateExecuteBtn();
+  }
+
+  async function doScan() {
+    if (!syncState.dirHandle) return;
+    const prog = $('#syncProgress');
+    prog.hidden = false; prog.textContent = 'Reading the local folder…';
+    $('#syncList').innerHTML = ''; $('#syncExecute').disabled = true;
+    try {
+      let res = await ODP.sync.scanDirectory(syncState.dirHandle, { allowDeletes: false });
+      if (res.guard) {
+        const ok = await confirmModal('Is this the right folder?',
+          res.guard.message + '  Continue only if this folder is the NEW vault.');
+        if (!ok) { prog.textContent = 'Cancelled — nothing was changed.'; return; }
+        prog.textContent = 'Re-scanning…';
+        res = await ODP.sync.scanDirectory(syncState.dirHandle, { allowDeletes: false, acceptedGuard: true });
+      }
+      syncState.mode = 'directory';
+      syncState.scan = res;
+      prog.textContent = 'Compared ' + res.local.size + ' local file(s) with Drive.';
+      renderPlan();
+      if (!res.plan.some(i => i.action !== 'none')) toast('Already in sync — nothing to do.');
+    } catch (e) {
+      prog.textContent = 'Scan failed.';
+      logError('Local sync scan failed', (e && e.message) || String(e));
+    }
+  }
+
+  async function doExecute() {
+    if (!syncState.scan) return;
+    const prog = $('#syncProgress');
+    prog.hidden = false;
+    $('#syncExecute').disabled = true;
+    try {
+      const cb = (done, total, item, status) => {
+        prog.textContent = done + '/' + total + '  ' + item.path +
+          (status && status !== 'done' ? '  — ' + status : '');
+      };
+      let r;
+      if (syncState.mode === 'zip') r = await ODP.sync.executeImport(syncState.scan.plan, cb);
+      else r = await ODP.sync.executeDirectory(syncState.dirHandle, syncState.scan, syncState.scan.plan, cb);
+      prog.textContent = 'Finished: ' + r.done + ' of ' + r.total + ' processed.';
+      toast('Sync complete.');
+      if (syncState.mode === 'directory') {
+        // Mark the folder so future runs skip the legacy-vault guard.
+        try { await ODP.sync.writeLocalFile(syncState.dirHandle, '.pwa-vault-root.json', ODP.sync.markerBytes()); } catch (e) {}
+        await doScan();
+      }
+    } catch (e) {
+      logError('Local sync failed', (e && e.message) || String(e));
+    }
+  }
+
+  async function doExportZip() {
+    const prog = $('#syncProgress');
+    prog.hidden = false;
+    try {
+      const blob = await ODP.sync.exportZip((i, n, p) => {
+        prog.textContent = 'Exporting ' + i + '/' + n + '  ' + p;
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ObsidianVault-New ' + new Date().toISOString().slice(0, 10) + '.zip';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      prog.textContent = 'ZIP downloaded (' + Math.round(blob.size / 1024) + ' KB). ' +
+        'Unzip it into your Obsidian vault folder on the device.';
+    } catch (e) {
+      logError('ZIP export failed', (e && e.message) || String(e));
+    }
+  }
+
+  async function doImportZip(file) {
+    const prog = $('#syncProgress');
+    prog.hidden = false;
+    try {
+      const plan = await ODP.sync.importZip(file, (i, n, p) => {
+        prog.textContent = 'Reading ZIP ' + i + '/' + n + '  ' + p;
+      });
+      syncState.mode = 'zip';
+      syncState.scan = { plan };
+      prog.textContent = 'Compared the ZIP against Drive — nothing uploaded yet.';
+      renderPlan();
+    } catch (e) {
+      logError('ZIP import failed', (e && e.message) || String(e));
+    }
   }
 
   // ---------------- boot ----------------

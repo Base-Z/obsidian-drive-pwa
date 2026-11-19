@@ -138,6 +138,12 @@ window.ODP = window.ODP || {};
       const blob = await res.blob();
       return URL.createObjectURL(blob);
     },
+    // Raw bytes — used by local sync (attachments are not text) and for
+    // CRLF-safe comparison of .md files.
+    async getBytes(fileId) {
+      const res = await this._fetch(`${API}/files/${fileId}?alt=media`);
+      return new Uint8Array(await res.arrayBuffer());
+    },
 
     // ── Vault root creation (spec §4.2) ─────────────────────────
     async createFolder(name, parentId) {
@@ -147,8 +153,14 @@ window.ODP = window.ODP || {};
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       });
     },
+    // Find a folder by name inside a given parent.
+    async findFolder(parentId, name) {
+      const q = encodeURIComponent(`name = '${String(name).replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and '${parentId}' in parents`);
+      const d = await this._json(`${API}/files?q=${q}&fields=files(id,name)`);
+      return (d.files && d.files[0]) || null;
+    },
     async findVaultRoot(name) {
-      const q = encodeURIComponent(`name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and 'root' in parents`);
+      const q = encodeURIComponent(`name = '${String(name).replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and 'root' in parents`);
       const d = await this._json(`${API}/files?q=${q}&fields=files(id,name)`);
       return d.files && d.files[0] ? d.files[0] : null;
     },
@@ -184,12 +196,17 @@ window.ODP = window.ODP || {};
     },
     async _multipart(fileId, metadata, content) {
       const boundary = 'odb-' + Math.random().toString(36).slice(2);
-      const body =
-        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
-        JSON.stringify(metadata) +
-        `\r\n--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n` +
-        content +
-        `\r\n--${boundary}--`;
+      const enc = new TextEncoder();
+      const isText = typeof content === 'string';
+      const payload = isText ? enc.encode(content) : content;   // Uint8Array stays binary-safe
+      const head = enc.encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`);
+      const meta = enc.encode(JSON.stringify(metadata));
+      const mid = enc.encode(`\r\n--${boundary}\r\nContent-Type: ` +
+        (isText ? 'text/plain; charset=UTF-8' : 'application/octet-stream') + `\r\n\r\n`);
+      const tail = enc.encode(`\r\n--${boundary}--`);
+      const body = new Uint8Array(head.length + meta.length + mid.length + payload.length + tail.length);
+      let o = 0;
+      for (const part of [head, meta, mid, payload, tail]) { body.set(part, o); o += part.length; }
       const url = fileId
         ? `${UPLOAD}/files/${fileId}?uploadType=multipart&fields=id,headRevisionId,md5Checksum,properties`
         : `${UPLOAD}/files?uploadType=multipart&fields=id,headRevisionId,md5Checksum,properties`;
