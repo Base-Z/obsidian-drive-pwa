@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Phone Sensor Diagnostics</title>
+<meta name="theme-color" content="#0b1020">
+<meta name="build" content="2026-11-16 00:21:22Z">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="../shared/app.css">
+<link rel="stylesheet" href="./app.css">
+  <!-- Shared status bar (project 0000). Template: ../shared/statusbar.js — edit there to update all apps. -->
+  <script src="../shared/statusbar.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>Phone Sensor Diagnostics</h1>
+  <p class="sub">What this phone has, what the web can reach, and what it looks like.</p>
+
+  <nav class="tabs">
+    <button class="tab on" data-tab="device">Device</button>
+    <button class="tab" data-tab="sensors">Sensors</button>
+    <button class="tab" data-tab="expected">Expected</button>
+    <button class="tab" data-tab="visualise">Visualise</button>
+  </nav>
+
+  <!-- ---------- Device ---------- -->
+  <section class="panel on" id="panel-device">
+    <section class="card">
+      <header><h3>This device</h3>
+        <p class="muted">Reported by the browser (User-Agent Client Hints, falling back to the UA string).</p>
+      </header>
+      <div id="device-table"></div>
+      <div id="device-ua"></div>
+    </section>
+  </section>
+
+  <!-- ---------- Sensors ---------- -->
+  <section class="panel" id="panel-sensors">
+    <section class="card">
+      <header><h3>Probe</h3>
+        <p class="muted">Sensors marked <em>tap to enable</em> need a user gesture before the browser
+        will hand over data &mdash; that is a browser rule, not a fault.</p>
+      </header>
+      <button id="probe-all">Probe all sensors</button>
+    </section>
+    <div id="sensors-list"></div>
+  </section>
+
+  <!-- ---------- Expected ---------- -->
+  <section class="panel" id="panel-expected">
+    <div id="expected-body"></div>
+  </section>
+
+  <!-- ---------- Visualise ---------- -->
+  <section class="panel" id="panel-visualise">
+    <section class="card">
+      <header><h3>Choose what to plot</h3>
+        <p class="muted">Tick a whole group or individual sensors. Only sensors the browser can
+        actually reach are selectable.</p>
+      </header>
+      <div class="btnrow">
+        <button class="mini" id="select-all">Select all available</button>
+        <button class="mini" id="select-none">Clear</button>
+      </div>
+      <div id="tree"></div>
+    </section>
+    <div id="cards"></div>
+  </section>
+
+  <footer>
+    build <code id="build"></code><br>
+    origin <code id="origin"></code> &middot; project 0002
+  </footer>
+</div>
+
+<script src="./viz.js"></script>
+<script src="./app.js"></script>
+<script>
+  document.getElementById('build').textContent =
+    document.querySelector('meta[name="build"]').content;
+  document.getElementById('origin').textContent = location.origin;
+</script>
+</body>
+</html>

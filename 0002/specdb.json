@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "note": "Offline snapshot of expected device sensors, used when the phone is offline or the device is unknown. Each entry cites its sources.",
+    "updated": "2026-11-15",
+    "vocabulary": ["accelerometer", "gyroscope", "magnetometer", "ambient-light", "proximity", "fingerprint", "barometer", "temperature", "humidity", "gps", "wifi", "bluetooth", "nfc", "cellular", "camera", "microphone"]
+  },
+
+  "baseline": {
+    "name": "Generic modern Android phone",
+    "sensors": ["accelerometer", "gyroscope", "magnetometer", "ambient-light", "proximity", "fingerprint", "gps", "wifi", "bluetooth", "cellular", "camera", "microphone"],
+    "source": "Typical mid/high-end Android handset, 2025"
+  },
+
+  "devices": {
+    "sm-a566b": {
+      "name": "Samsung Galaxy A56 5G",
+      "aliases": ["sm-a566b", "galaxy a56", "galaxy a56 5g", "a56"],
+      "gsmarena_slug": "samsung_galaxy_a56-13603",
+      "sensors": ["accelerometer", "gyroscope", "magnetometer", "ambient-light", "proximity", "fingerprint", "gps", "wifi", "bluetooth", "nfc", "cellular", "camera", "microphone"],
+      "absent": ["barometer", "temperature", "humidity"],
+      "sources": [
+        {
+          "name": "Samsung (official product page)",
+          "url": "https://www.samsung.com/levant/smartphones/galaxy-a/galaxy-a56-5g-awesome-graphite-128gb-sm-a566bzkvmea/",
+          "sensors": "Accelerometer, Fingerprint Sensor, Gyro Sensor, Geomagnetic Sensor, Light Sensor, Virtual Proximity Sensing"
+        },
+        {
+          "name": "GSMArena",
+          "url": "https://www.gsmarena.com/samsung_galaxy_a56-13603.php",
+          "sensors": "Fingerprint (under display, optical), accelerometer, gyro, compass + Virtual Proximity Sensing"
+        }
+      ],
+      "conflicts": [
+        {
+          "sensor": "ambient-light",
+          "detail": "Samsung's own page lists a Light Sensor; GSMArena's sensor row omits it. The device almost certainly has one (auto-brightness), so it is treated as expected."
+        }
+      ],
+      "hardware": {
+        "chipset": "Exynos 1580 (4 nm)",
+        "gpu": "Xclipse 540",
+        "display": "6.7in Super AMOLED, 120 Hz",
+        "battery_mah": 5000,
+        "weight_g": 198,
+        "dimensions_mm": "162.2 x 77.5 x 7.4",
+        "ip_rating": "IP67",
+        "os": "Android 15 (One UI 7)",
+        "wifi": "802.11 a/b/g/n/ac/6, dual-band",
+        "bluetooth": "5.3, LE",
+        "gnss": "GPS, GALILEO, GLONASS, BDS, QZSS",
+        "nfc": true,
+        "fm_radio": false,
+        "infrared": false
+      }
+    }
+  }
+}

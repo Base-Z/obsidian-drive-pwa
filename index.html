@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PWA Projects</title>
+<meta name="theme-color" content="#0b1020">
+<meta name="build" content="2026-11-15 23:54:29Z">
+<link rel="icon" href="./shared/icon.png">
+<link rel="apple-touch-icon" href="./shared/icon.png">
+<link rel="stylesheet" href="./shared/app.css">
+  <!-- Shared status bar (project 0000). Template: /shared/statusbar.js — edit there to update all apps. -->
+  <script src="./shared/statusbar.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>PWA Projects</h1>
+  <p class="sub">Install these to your home screen &mdash; they run offline.</p>
+
+  <ul class="apps">
+    <li>
+      <a class="app" href="./0001/">
+        <span class="app-num">0001</span>
+        <span class="app-body">
+          <span class="app-title">PWA Proof of Concept</span>
+          <span class="app-desc">Offline demo &mdash; installed &amp; verified in airplane mode.</span>
+        </span>
+        <span class="chev">&rsaquo;</span>
+      </a>
+    </li>
+    <li>
+      <a class="app" href="./0002/">
+        <span class="app-num">0002</span>
+        <span class="app-body">
+          <span class="app-title">Phone Sensor Diagnostics</span>
+          <span class="app-desc">Detect the phone's sensors, compare them with expected specs, and plot the readings.</span>
+        </span>
+        <span class="chev">&rsaquo;</span>
+      </a>
+    </li>
+    <li>
+      <a class="app" href="./0003/">
+        <span class="app-num">0003</span>
+        <span class="app-body">
+          <span class="app-title">Obsidian Drive</span>
+          <span class="app-desc">Read &amp; edit Obsidian Markdown notes directly in Google Drive &mdash; no sync daemon.</span>
+        </span>
+        <span class="chev">&rsaquo;</span>
+      </a>
+    </li>
+  </ul>
+
+  <footer>
+    Served from <code id="origin"></code><br>
+    <span id="caRow">New device? <a href="./caddy-root-ca.crt">Install the CA certificate</a> first.<br></span>
+    <span id="build"></span> &middot; menu is project 0000
+  </footer>
+</div>
+
+<script>
+  document.getElementById('origin').textContent = location.origin;
+  document.getElementById('build').textContent =
+    'build ' + document.querySelector('meta[name="build"]').content;
+
+  // The CA-cert row only makes sense on the LAN origin (a bare IP address).
+  // On GitHub Pages the certificate is publicly trusted, so hide it there.
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(location.hostname)) {
+    var ca = document.getElementById('caRow');
+    if (ca) ca.style.display = 'none';
+  }
+</script>
+</body>
+</html>

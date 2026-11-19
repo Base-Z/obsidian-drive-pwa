@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Obsidian Drive — 0003</title>
+<meta name="theme-color" content="#0b1020">
+<meta name="build" content="2026-11-19 17:30:00Z">
+<meta name="description" content="Cloud-first Obsidian emulator that edits Markdown notes directly in Google Drive.">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="stylesheet" href="../shared/app.css">
+<link rel="stylesheet" href="./app.css">
+<link rel="stylesheet" href="./vendor/katex/katex.min.css">
+  <!-- Shared status bar (project 0000). Template: ../shared/statusbar.js — edit there to update all apps. -->
+  <script src="../shared/statusbar.js" defer></script>
+<script src="./vendor/katex/katex.min.js" defer></script>
+<script src="./js/config.js"></script>
+<script src="./js/store.js" defer></script>
+<script src="./js/lock.js" defer></script>
+<script src="./js/markdown.js" defer></script>
+<script src="./js/vault.js" defer></script>
+<script src="./js/demo.js" defer></script>
+<script src="./js/auth.js" defer></script>
+<script src="./js/drive.js" defer></script>
+<script src="./js/app.js" defer></script>
+</head>
+<body class="odp">
+<div class="odp-app">
+
+  <div class="topbar">
+    <button class="tbtn icon-only menu-btn" id="btnMenu" title="Files">☰</button>
+    <div class="brand">Obsidian <span>Drive</span> <span class="word">Emulator</span></div>
+    <div class="vault-badge sandbox" id="vaultBadge">Active Vault: ObsidianVault-New [Sandbox / Legacy Vault Preserved]</div>
+    <div class="spacer"></div>
+    <button class="tbtn" id="btnQuick" title="Quick switcher (Ctrl/Cmd+O)">🔍 <span class="lbl">Open</span></button>
+    <button class="tbtn" id="btnSearch" title="Search (Ctrl/Cmd+Shift+F)">⌕ <span class="lbl">Search</span></button>
+    <button class="tbtn" id="btnRight" title="Links & tags">⇥</button>
+    <button class="tbtn primary" id="btnAuth">Sign in to Drive</button>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar" aria-label="Vault files">
+      <div class="rp-title" style="padding:4px 8px 2px">Vault</div>
+      <ul class="tree" id="tree"></ul>
+    </aside>
+
+    <main class="main" id="main">
+      <div class="note-wrap" id="home">
+        <h1 style="margin-top:0">Obsidian Drive</h1>
+        <p class="note-sub">A cloud-first Obsidian emulator. It edits <code>.md</code> files directly in
+          Google Drive — no sync daemon, no FUSE mount.</p>
+      </div>
+    </main>
+
+    <aside class="rightbar" id="rightbar" aria-label="Links and tags">
+      <div class="rp-section">
+        <p class="rp-title">Backlinks</p>
+        <ul class="rp-list" id="backlinks"><li class="rp-empty">Open a note.</li></ul>
+      </div>
+      <div class="rp-section">
+        <p class="rp-title">Outgoing links</p>
+        <ul class="rp-list" id="outlinks"><li class="rp-empty">—</li></ul>
+      </div>
+      <div class="rp-section">
+        <p class="rp-title">Tags</p>
+        <div class="chips" id="tags"><span class="rp-empty">—</span></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="statusline" id="statusline">
+    <span id="stMode" class="pill">sandbox</span>
+    <span id="stNotes">0 notes</span>
+    <span class="grow"></span>
+    <span id="stMsg"></span>
+  </div>
+</div>
+
+<!-- Quick switcher -->
+<div class="modal-back" id="modalQuick">
+  <div class="modal" role="dialog" aria-label="Quick switcher">
+    <h3>Quick switcher</h3>
+    <input type="text" id="quickInput" placeholder="Type a note name…" autocomplete="off">
+    <ul class="result-list" id="quickList"></ul>
+    <div class="actions"><button class="tbtn" data-close="modalQuick">Close</button></div>
+  </div>
+</div>
+
+<!-- Search -->
+<div class="modal-back" id="modalSearch">
+  <div class="modal" role="dialog" aria-label="Search">
+    <h3>Search notes</h3>
+    <input type="search" id="searchInput" placeholder="Full-text search…" autocomplete="off">
+    <ul class="result-list" id="searchList"></ul>
+    <div class="actions"><button class="tbtn" data-close="modalSearch">Close</button></div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div class="modal-back" id="modalConfirm">
+  <div class="modal" role="dialog" aria-label="Confirm">
+    <h3 id="confirmTitle">Confirm</h3>
+    <p id="confirmBody" style="color:var(--muted);font-size:.9rem"></p>
+    <div class="actions">
+      <button class="tbtn" data-close="modalConfirm">Cancel</button>
+      <button class="tbtn primary" id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</body>
+</html>

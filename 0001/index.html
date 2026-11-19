@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PWA Proof of Concept</title>
+<meta name="theme-color" content="#0b1020">
+<meta name="build" content="2026-11-15 23:54:29Z">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="../shared/app.css">
+  <!-- Shared status bar (project 0000). Template: ../shared/statusbar.js — edit there to update all apps. -->
+  <script src="../shared/statusbar.js" defer></script>
+<style>
+  /* app-specific on top of the shared theme */
+  body { display: flex; flex-direction: column; justify-content: center; }
+  #clock { font-size: 1.9rem; font-weight: 650; letter-spacing: .5px; }
+</style>
+</head>
+<body>
+<div class="wrap center">
+  <h1>PWA Proof of Concept</h1>
+  <p class="sub">installed from the LAN &middot; runs offline</p>
+
+  <div class="card stack">
+    <div class="row">
+      <span class="label">Connection</span>
+      <span id="net" class="badge online">Online</span>
+    </div>
+    <div class="row" style="flex-direction:column; align-items:center; gap:2px;">
+      <span class="label">Local time (ticks with no network)</span>
+      <div id="clock">--:--:--</div>
+    </div>
+    <div class="row">
+      <span class="label">Tap counter (persists across restarts)</span>
+      <span class="value"><span id="count">0</span></span>
+    </div>
+    <div class="row">
+      <span class="label">Service worker</span>
+      <span id="sw" class="value">checking&hellip;</span>
+    </div>
+    <button id="install" hidden>Install app</button>
+  </div>
+
+  <footer>
+    build <code id="build"></code><br>
+    origin <code id="origin"></code> &middot; project 0001
+  </footer>
+</div>
+
+<script>
+(function () {
+  document.getElementById('build').textContent =
+    document.querySelector('meta[name="build"]').content;
+  document.getElementById('origin').textContent = location.origin;
+
+  // Live clock — proves JS is executing with no network.
+  function tick() {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  }
+  tick(); setInterval(tick, 1000);
+
+  // Connection badge.
+  var net = document.getElementById('net');
+  function setNet() {
+    var on = navigator.onLine;
+    net.textContent = on ? 'Online' : 'Offline';
+    net.className = 'badge ' + (on ? 'online' : 'offline');
+  }
+  setNet();
+  addEventListener('online', setNet);
+  addEventListener('offline', setNet);
+
+  // Persisted counter.
+  var KEY = 'pwa-poc-count';
+  var count = parseInt(localStorage.getItem(KEY) || '0', 10) || 0;
+  var countEl = document.getElementById('count');
+  countEl.textContent = count;
+  document.querySelector('.card').addEventListener('click', function (e) {
+    if (e.target.closest('a, button')) return;
+    count += 1; localStorage.setItem(KEY, count); countEl.textContent = count;
+  });
+
+  // Service worker status.
+  var swEl = document.getElementById('sw');
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then(function (reg) {
+      var mark = function () {
+        swEl.textContent = (reg.active ? 'active' : 'registered');
+        swEl.style.color = '#4ade80';
+      };
+      if (navigator.serviceWorker.controller || reg.active) mark();
+      else reg.addEventListener('updatefound', mark), setTimeout(mark, 1200);
+    }).catch(function (err) {
+      swEl.textContent = 'failed';
+      swEl.style.color = '#fb7185';
+      console.error('SW registration failed:', err);
+    });
+  } else {
+    swEl.textContent = 'unsupported';
+  }
+
+  // Install prompt (Chrome/Android).
+  var btn = document.getElementById('install');
+  var deferred = null;
+  addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault(); deferred = e; btn.hidden = false;
+  });
+  btn.addEventListener('click', function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.then(function () { deferred = null; btn.hidden = true; });
+  });
+  addEventListener('appinstalled', function () { btn.hidden = true; });
+})();
+</script>
+</body>
+</html>

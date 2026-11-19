@@ -1,0 +1,12 @@
+# Local-only files — never published to GitHub Pages.
+#
+# The Caddy root CA cert is served on the LAN (https://<lan-ip>:8443) so a new
+# phone can trust the local origin. It is meaningless on GitHub Pages, which
+# has a real publicly-trusted certificate, so it is excluded from the public
+# site. The menu hides its "Install the CA certificate" row automatically when
+# the site is not served from a bare IP address.
+caddy-root-ca.crt
+
+# Local scratch
+tmp/
+*.log

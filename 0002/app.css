@@ -1,0 +1,102 @@
+/* ============================================================
+   app.css — project 0002 (Phone Sensor Diagnostics)
+   App-specific styling layered on top of /shared/app.css.
+   ============================================================ */
+
+/* ---------- tabs ---------- */
+.tabs {
+  display: flex; gap: 6px; margin: 0 0 18px; overflow-x: auto;
+  padding-bottom: 2px;
+}
+.tab {
+  flex: 1 0 auto; font: inherit; font-size: .86rem; font-weight: 600;
+  background: rgba(255,255,255,.05); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; cursor: pointer;
+}
+.tab.on { background: rgba(76,194,255,.14); color: var(--accent); border-color: rgba(76,194,255,.4); }
+
+.panel { display: none; }
+.panel.on { display: block; }
+
+/* ---------- key/value rows ---------- */
+.kv {
+  display: flex; gap: 12px; align-items: baseline; justify-content: space-between;
+  padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.06);
+  font-size: .86rem;
+}
+.kv:last-child { border-bottom: 0; }
+.kv > span { color: var(--muted); flex: 0 0 40%; }
+.kv > b { text-align: right; font-weight: 600; }
+.kv > b.wrap { text-align: right; word-break: break-word; font-weight: 500; font-size: .8rem; }
+
+.muted { color: var(--muted); font-size: .82rem; margin: 4px 0 0; }
+.bad { color: var(--bad); font-size: .84rem; }
+.card header h3 { margin: 0 0 2px; font-size: 1rem; font-weight: 650; }
+.card + .card, .group + .group, .viz + .viz { margin-top: 14px; }
+
+/* ---------- status pills ---------- */
+.pill {
+  display: inline-block; padding: 3px 9px; border-radius: 999px;
+  font-size: .72rem; font-weight: 650; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.st-ok      { color: #4ade80; background: rgba(74,222,128,.12);  border-color: rgba(74,222,128,.35); }
+.st-absent  { color: #8fa0c0; background: rgba(143,160,192,.10); border-color: rgba(143,160,192,.28); }
+.st-tap     { color: #fbbf24; background: rgba(251,191,36,.12);  border-color: rgba(251,191,36,.35); }
+.st-bad     { color: #fb7185; background: rgba(251,113,133,.12); border-color: rgba(251,113,133,.35); }
+.st-unknown { color: #6d7ea0; background: rgba(109,126,160,.10); border-color: rgba(109,126,160,.25); }
+
+/* ---------- sensor rows ---------- */
+.group header { margin-bottom: 10px; }
+.srow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.srow:last-child { border-bottom: 0; }
+.sname { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sname b { font-size: .88rem; font-weight: 600; }
+.sname .muted { font-size: .74rem; margin: 0; }
+
+button.mini {
+  font: inherit; font-size: .78rem; font-weight: 650;
+  padding: 6px 11px; border-radius: 9px; border: 1px solid rgba(76,194,255,.4);
+  background: rgba(76,194,255,.12); color: var(--accent); cursor: pointer;
+}
+button.mini:disabled { opacity: .5; }
+.btnrow { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+/* ---------- comparison ---------- */
+.cmp .kv > span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; }
+.cmp .kv > b { text-align: right; }
+
+/* ---------- selection tree ---------- */
+#tree { margin-top: 14px; }
+.tgroup { margin-bottom: 14px; }
+.tgl {
+  display: flex; align-items: center; gap: 9px; cursor: pointer;
+  padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.045);
+  border: 1px solid var(--line);
+}
+.tgl b { font-size: .88rem; }
+.tgl .muted { margin: 0 0 0 auto; font-size: .74rem; }
+.titems { display: grid; gap: 2px; margin: 6px 0 0 10px; }
+.titem {
+  display: flex; align-items: center; gap: 9px; cursor: pointer;
+  padding: 6px 8px; border-radius: 8px; font-size: .84rem;
+}
+.titem:hover { background: rgba(255,255,255,.04); }
+.titem.dim { opacity: .45; cursor: not-allowed; }
+.titem span:first-of-type { flex: 1 1 auto; }
+input[type=checkbox] { width: 16px; height: 16px; accent-color: #4cc2ff; }
+
+/* ---------- visualisation cards ---------- */
+.viz .vizpart { margin-top: 12px; }
+.vizlabel {
+  font-size: .74rem; color: var(--muted); margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+canvas.cv { display: block; width: 100%; height: 118px; }
+canvas.cv.tall { height: 150px; }
+.readout { font-size: .84rem; }
+
+footer { margin-top: 22px; }
