@@ -104,6 +104,19 @@ window.ODP = window.ODP || {};
       }
     },
 
+    // Silent renewal ONLY — never opens UI. Used on app boot to resume a
+    // previous session without a tap; throws so the caller can fall back to
+    // sandbox mode quietly.
+    async renewSilently() {
+      if (this.isSignedIn()) return this.accessToken;
+      if (!this.isConfigured()) throw new Error('not configured');
+      await this._ensureClient();
+      return new Promise((resolve, reject) => {
+        this._pending = { resolve, reject };
+        this.tokenClient.requestAccessToken({ prompt: '' });
+      });
+    },
+
     signOut() {
       if (this.accessToken && window.google && window.google.accounts) {
         try { window.google.accounts.oauth2.revoke(this.accessToken, () => {}); } catch (e) {}

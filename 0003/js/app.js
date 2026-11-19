@@ -567,9 +567,21 @@ window.ODP = window.ODP || {};
     }
     try {
       await ODP.auth.signIn();
+      localStorage.setItem('odp3Connected', '1');
       toast('Signed in. Loading vault…');
       await loadDrive();
     } catch (e) { toast(e.message || String(e), true); }
+  }
+
+  // Boot-time resume: only if the user has connected before, and only silently.
+  // A failure leaves sandbox mode untouched and prompts nothing.
+  async function resumeDrive() {
+    try {
+      await ODP.auth.renewSilently();
+      await loadDrive();
+    } catch (e) {
+      updateAuthUi();   // stay in sandbox; the user can tap Sign in
+    }
   }
 
   // First-run onboarding (spec §2.4): seed the brand-new vault with a small set
@@ -722,6 +734,11 @@ window.ODP = window.ODP || {};
     wire();
     loadSandbox();
     showErrBar();   // restore any error logged before a reload
+    // Resume a previous Drive session — silently, and only if the user has
+    // connected before. Never prompts on boot.
+    if (!isLanIpOrigin() && ODP.auth.isConfigured() && localStorage.getItem('odp3Connected') === '1') {
+      resumeDrive();
+    }
     if ('serviceWorker' in navigator) {
       try { navigator.serviceWorker.register('./sw.js').catch(() => {}); } catch (e) {}
     }
