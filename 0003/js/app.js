@@ -526,7 +526,7 @@ window.ODP = window.ODP || {};
     const badge = $('#vaultBadge');
     if (state.mode === 'drive') {
       badge.classList.remove('sandbox');
-      badge.textContent = 'Active Vault: ' + (ODP.store.meta && localStorage.getItem('odp3RootName') || 'ObsidianVault-New');
+      badge.textContent = 'Active Vault: ' + (localStorage.getItem('odp3RootName') || ODP.config.vaultFolderDefaultName);
     } else {
       badge.classList.add('sandbox');
       badge.textContent = 'Active Vault: ObsidianVault-New [Sandbox / Legacy Vault Preserved]';
@@ -572,23 +572,67 @@ window.ODP = window.ODP || {};
     } catch (e) { toast(e.message || String(e), true); }
   }
 
+  // First-run onboarding (spec §2.4): seed the brand-new vault with a small set
+  // of starter notes that exercise every renderer feature, so the acceptance
+  // tests have something real to run against.
+  async function seedStarterNotes(rootId) {
+    const folderIds = new Map([['', rootId]]);
+    const folderFor = async (dir) => {
+      if (folderIds.has(dir)) return folderIds.get(dir);
+      const parts = dir.split('/');
+      const parentId = await folderFor(parts.slice(0, -1).join('/'));
+      const created = await ODP.drive.createFolder(parts[parts.length - 1], parentId);
+      folderIds.set(dir, created.id);
+      return created.id;
+    };
+    for (const note of ODP.demo.notes()) {
+      const dir = note.path.split('/').slice(0, -1).join('/');
+      const parentId = dir ? await folderFor(dir) : rootId;
+      // demo.js stores the attachment as a data: URI — decode it so the file
+      // lands in Drive as real bytes rather than a data URI string.
+      let body = note.content || '';
+      let mime = note.mimeType || 'text/markdown';
+      const dm = /^data:([^;,]+)(;base64)?,(.*)$/s.exec(body);
+      if (dm) {
+        mime = dm[1];
+        body = dm[2] ? atob(dm[3]) : decodeURIComponent(dm[3]);
+      }
+      await ODP.drive.createFile(note.path.split('/').pop(), parentId, body, mime);
+    }
+  }
+
   async function loadDrive() {
     const name = ODP.config.vaultFolderDefaultName;
     const root = await ODP.drive.ensureVaultRoot(name);
     localStorage.setItem('odp3RootName', name);
-    let token = await ODP.store.getMeta('changesStartToken', null);
-    if (!token) { token = await ODP.drive.getStartPageToken(); await ODP.store.meta.set('changesStartToken', token); }
-    const files = await ODP.drive.buildTree(root.id);
+    try {
+      // Changes API page token is an incremental-refresh optimisation only —
+      // never let it block first load.
+      let token = await ODP.store.getMeta('changesStartToken', null);
+      if (!token) { token = await ODP.drive.getStartPageToken(); await ODP.store.meta.set('changesStartToken', token); }
+    } catch (e) { /* ignore */ }
+
+    let files = await ODP.drive.buildTree(root.id);
+    let md = files.filter(f => /\.md$/i.test(f.path));
+
+    if (!md.length) {
+      toast('New vault — creating starter test notes…');
+      await seedStarterNotes(root.id);
+      files = await ODP.drive.buildTree(root.id);
+      md = files.filter(f => /\.md$/i.test(f.path));
+      toast('Created ' + md.length + ' starter notes in ' + name + '/');
+    }
+
     state.mode = 'drive';
     state.records = files;
-    // Lazily fetch .md bodies for indexing/search/backlinks.
-    const md = files.filter(f => /\.md$/i.test(f.path));
-    await Promise.all(md.map(async f => { try { f.content = (await ODP.drive.getContent(f.id)).replace(/\r\n?/g, '\n'); } catch (e) {} }));
+    // Fetch .md bodies for indexing / search / backlinks.
+    await Promise.all(md.map(async f => {
+      try { f.content = (await ODP.drive.getContent(f.id)).replace(/\r\n?/g, '\n'); } catch (e) {}
+    }));
     ODP.VaultIndex.build(state.records);
     renderTree(); updateStatus(); updateAuthUi();
-    if (!md.length) toast('New vault created — it has no notes yet.');
-    else toast('Vault loaded: ' + md.length + ' notes.');
-    const first = md[0];
+    if (md.length) toast('Vault loaded: ' + md.length + ' notes.');
+    const first = md.find(f => /(^|\/)Welcome\.md$/.test(f.path)) || md[0];
     if (first && !location.hash) openNote(first.path);
   }
 
