@@ -59,12 +59,20 @@ window.ODP = window.ODP || {};
             this.expiresAt = Date.now() + ((resp.expires_in ? +resp.expires_in : 3600) * 1000);
             cb.resolve(this.accessToken);
           } else {
-            cb.reject(new Error(resp && resp.error ? resp.error : 'Authorization failed'));
+            // Surface everything Google gives us — on a phone this is the only
+            // diagnostic the user can read back.
+            const parts = [];
+            if (resp && resp.error) parts.push('error=' + resp.error);
+            if (resp && resp.error_description) parts.push(resp.error_description);
+            if (resp && resp.error_uri) parts.push(resp.error_uri);
+            cb.reject(new Error('Authorization failed' + (parts.length ? ': ' + parts.join(' | ') : '')));
           }
         },
         error_callback: (err) => {
           const cb = this._pending; this._pending = null;
-          if (cb) cb.reject(new Error((err && err.message) || 'Authorization cancelled'));
+          if (cb) cb.reject(new Error('Google sign-in popup: ' +
+            ((err && (err.type || err.message)) || 'unknown') +
+            (err && err.message ? ' — ' + err.message : '')));
         }
       });
     },

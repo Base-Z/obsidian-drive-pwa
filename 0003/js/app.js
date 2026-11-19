@@ -29,7 +29,40 @@ window.ODP = window.ODP || {};
     t.classList.toggle('err', !!isErr);
     t.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+    // Errors are ALSO written to the persistent error bar and never auto-hide
+    // here, because on a phone a 3-second toast is impossible to read.
+    const ms = isErr ? 15000 : 3200;
+    toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+    if (isErr) logError(msg);
+  }
+
+  // ---------------- durable error log ----------------
+  const ERR_KEY = 'odp3Errors';
+  function errorHistory() {
+    try { return JSON.parse(localStorage.getItem(ERR_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function logError(msg, detail) {
+    const entry = { t: new Date().toLocaleString(), msg: String(msg), detail: detail ? String(detail) : '' };
+    try {
+      const h = errorHistory();
+      h.unshift(entry);
+      localStorage.setItem(ERR_KEY, JSON.stringify(h.slice(0, 20)));
+    } catch (e) {}
+    try { console.error('[ODP]', entry.t, entry.msg, entry.detail); } catch (e) {}
+    showErrBar();
+  }
+  function showErrBar() {
+    const bar = document.getElementById('errbar');
+    if (!bar) return;
+    const h = errorHistory();
+    if (!h.length) { bar.hidden = true; return; }
+    const e = h[0];
+    $('#errbarMsg').innerHTML = '';
+    $('#errbarMsg').appendChild(document.createTextNode(e.msg + (e.detail ? '\n' + e.detail : '')));
+    const meta = el('span', 'errbar-meta',
+      e.t + (h.length > 1 ? '  ·  ' + (h.length - 1) + ' earlier error(s) logged' : ''));
+    $('#errbarMsg').appendChild(meta);
+    bar.hidden = false;
   }
   function openModal(id) { document.getElementById(id).classList.add('open'); }
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -596,6 +629,20 @@ window.ODP = window.ODP || {};
 
     window.addEventListener('online', () => $('#stMsg').textContent = 'online');
     window.addEventListener('offline', () => $('#stMsg').textContent = 'offline — drafts kept locally');
+
+    // Persistent error bar: errors stay until dismissed so they can be read
+    // and screenshotted on a phone.
+    $('#errbarClose').onclick = () => {
+      try { localStorage.removeItem(ERR_KEY); } catch (e) {}
+      $('#errbar').hidden = true;
+    };
+    window.addEventListener('error', (ev) => logError(
+      'Uncaught error: ' + (ev.message || 'unknown'),
+      ev.filename ? ev.filename.split('/').slice(-2).join('/') + ':' + ev.lineno : ''));
+    window.addEventListener('unhandledrejection', (ev) => {
+      const r = ev.reason;
+      logError('Unhandled rejection: ' + ((r && (r.message || r)) || 'unknown'));
+    });
   }
 
   // ---------------- boot ----------------
@@ -610,6 +657,7 @@ window.ODP = window.ODP || {};
     }
     wire();
     loadSandbox();
+    showErrBar();   // restore any error logged before a reload
     if ('serviceWorker' in navigator) {
       try { navigator.serviceWorker.register('./sw.js').catch(() => {}); } catch (e) {}
     }
