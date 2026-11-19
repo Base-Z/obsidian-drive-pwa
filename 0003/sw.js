@@ -8,7 +8,7 @@
    Precaches the app shell, shared assets, KaTeX and fonts so the app
    launches and renders notes offline. Bump VERSION on changes.
    ============================================================ */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'odp3-' + VERSION;
 
 const SCOPE = self.registration.scope;

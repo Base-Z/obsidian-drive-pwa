@@ -34,8 +34,12 @@ window.ODP = window.ODP || {};
         throw e;
       }
       if (res.status === 401) {
-        // Token expired — clear and retry once after silent renewal.
+        // Access token expired (GIS tokens last ~1 hour; in Testing mode the
+        // grant itself can lapse after ~7 days). Clear it and retry once
+        // after silent renewal — signIn() prompts only if silence is
+        // impossible. Any unsaved edit is safe: it is autosaved to IndexedDB.
         ODP.auth.accessToken = null;
+        if (ODP.app && ODP.app.sessionExpired) ODP.app.sessionExpired();
         if (attempt < 1) return this._fetch(url, opts, attempt + 1);
         throw new Error('unauthorized');
       }

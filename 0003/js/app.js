@@ -255,9 +255,36 @@ window.ODP = window.ODP || {};
   function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
   // ---------------- editor ----------------
-  function enterEditor(content) {
+  // Recover any locally-stored draft for this note. This is what makes a
+  // token expiry (or a reload) mid-edit non-destructive: the text lives in
+  // IndexedDB, not only in the DOM.
+  async function loadDraft(rec) {
+    if (state.draft != null) return state.draft;
+    try {
+      const d = await ODP.store.drafts.get(rec.id);
+      if (d && typeof d.content === 'string') state.draft = d.content;
+    } catch (e) { /* storage unavailable — fall back to the Drive copy */ }
+    return state.draft;
+  }
+
+  // Debounced autosave of the working draft.
+  async function persistDraft(content) {
+    const rec = state.current;
+    if (!rec) return;
+    try {
+      await ODP.store.drafts.set({
+        id: rec.id, path: rec.path, content, savedAt: new Date().toISOString()
+      });
+      $('#stMsg').textContent = 'draft saved locally ' + new Date().toLocaleTimeString();
+    } catch (e) {
+      $('#stMsg').textContent = 'draft NOT saved (storage unavailable)';
+    }
+  }
+
+  async function enterEditor(content) {
     state.editing = true;
     const rec = state.current;
+    const stored = await loadDraft(rec);
     const main = $('#main');
     main.innerHTML = '';
     const wrap = el('div', 'editor-wrap');
@@ -275,8 +302,17 @@ window.ODP = window.ODP || {};
     wrap.appendChild(tb);
 
     const ta = el('textarea', 'editor');
-    ta.value = content != null ? content : (state.draft != null ? state.draft : rec.content || '');
+    ta.value = content != null ? content
+             : (stored != null ? stored : (rec.content || ''));
     wrap.appendChild(ta);
+
+    // Autosave as you type (debounced) so nothing is lost on expiry/reload.
+    let saveTimer = null;
+    ta.addEventListener('input', () => {
+      state.draft = ta.value;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => persistDraft(ta.value), 700);
+    });
 
     const prev = el('div', 'md');
     prev.style.display = 'none';
@@ -290,9 +326,9 @@ window.ODP = window.ODP || {};
       preview.textContent = previewOn ? 'Source' : 'Preview';
     };
 
-    save.onclick = () => doCheckIn(ta.value);
-    draft.onclick = () => doSaveDraft(ta.value);
-    discard.onclick = () => doDiscard();
+    save.onclick = () => { clearTimeout(saveTimer); doCheckIn(ta.value); };
+    draft.onclick = () => { clearTimeout(saveTimer); doSaveDraft(ta.value); };
+    discard.onclick = () => { clearTimeout(saveTimer); doDiscard(); };
     main.appendChild(wrap);
     ta.focus();
   }
@@ -355,7 +391,7 @@ window.ODP = window.ODP || {};
   async function doSaveDraft(content) {
     const rec = state.current;
     state.draft = content;
-    await ODP.store.drafts.set(rec.id, { id: rec.id, path: rec.path, content, savedAt: new Date().toISOString() });
+    await ODP.store.drafts.set({ id: rec.id, path: rec.path, content, savedAt: new Date().toISOString() });
     toast('Draft saved to Drive (still checked out).');
     // push a draft copy to Drive without releasing the lock
     try { await ODP.drive.updateFile(rec.id, String(content).replace(/\r\n?/g, '\n')); }
@@ -579,5 +615,12 @@ window.ODP = window.ODP || {};
     }
   });
 
-  ODP.app = { state, openNote, toast };
+  // Called by DriveVaultService on a 401, before it retries with a fresh token.
+  function sessionExpired() {
+    const msg = 'Google session expired — re-authenticating… your draft is saved locally.';
+    $('#stMsg').textContent = msg;
+    toast(msg);
+  }
+
+  ODP.app = { state, openNote, toast, sessionExpired };
 })();

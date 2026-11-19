@@ -29,7 +29,7 @@ window.ODP = window.ODP || {};
     // ── Google OAuth ──────────────────────────────────────────────
     // Paste YOUR Google Cloud *Web application* OAuth Client ID here.
     // Not a secret — safe to commit. See the project Execution Log.
-    clientId: '',
+    clientId: '207563042471-72j8u706j4f1ogara15ir15l8b8uchf4.apps.googleusercontent.com',
 
     // Spec §4.1: full `drive` scope + the in-app Vault Root Jail is the
     // recommended default (full CLI / Drive-web-UI interoperability).

@@ -39,13 +39,19 @@ window.ODP = window.ODP || {};
       const s = t.objectStore(store);
       let out;
       try { out = fn(s); } catch (e) { reject(e); return; }
-      t.oncomplete = () => resolve(out && out.result !== undefined ? out.result : out);
+      t.oncomplete = () => {
+        // Resolve with the request's *result*, not the IDBRequest object —
+        // otherwise a get() on a missing key resolves to a truthy request
+        // instead of undefined, which silently defeats default values.
+        resolve(out && typeof out === 'object' && 'result' in out ? out.result : out);
+      };
       t.onerror = () => reject(t.error);
       t.onabort = () => reject(t.error);
     }));
   }
 
-  const wrap = (name, key) => ({
+  // Out-of-line key store: put(value, key). Used for meta / handles.
+  const kv = (name) => ({
     get: (k) => tx(name, 'readonly', s => s.get(k)),
     set: (k, v) => tx(name, 'readwrite', s => s.put(v, k)),
     del: (k) => tx(name, 'readwrite', s => s.delete(k)),
@@ -53,12 +59,22 @@ window.ODP = window.ODP || {};
     clear: () => tx(name, 'readwrite', s => s.clear())
   });
 
+  // In-line keyPath store: put(record) — the key lives in the record, so
+  // passing one as well throws DataError. Used for notes / drafts / syncman.
+  const obj = (name) => ({
+    get: (id) => tx(name, 'readonly', s => s.get(id)),
+    set: (record) => tx(name, 'readwrite', s => s.put(record)),
+    del: (id) => tx(name, 'readwrite', s => s.delete(id)),
+    all: () => tx(name, 'readonly', s => s.getAll()),
+    clear: () => tx(name, 'readwrite', s => s.clear())
+  });
+
   ODP.store = {
-    meta: wrap('meta'),
-    notes: wrap('notes'),
-    drafts: wrap('drafts'),
-    handles: wrap('handles'),
-    syncman: wrap('syncman'),
+    meta: kv('meta'),
+    handles: kv('handles'),
+    notes: obj('notes'),
+    drafts: obj('drafts'),
+    syncman: obj('syncman'),
 
     async getMeta(k, dflt) {
       const v = await this.meta.get(k);
