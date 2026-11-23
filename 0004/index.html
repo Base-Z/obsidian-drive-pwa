@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>TubeDigest — Daily YouTube Summary</title>
+    <meta
+      name="description"
+      content="Daily timestamped summaries and exotic vocabulary definitions for your subscribed YouTube channels, designed for mobile and desktop."
+    />
+    <meta property="og:title" content="TubeDigest — Daily YouTube Summary" />
+    <meta
+      property="og:description"
+      content="Daily timestamped summaries and exotic vocabulary definitions for your subscribed YouTube channels."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0B0D11" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F8F9FB" media="(prefers-color-scheme: light)" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="TubeDigest" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('tubedigest_theme');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = saved ? saved === 'dark' : (saved === null ? true : prefersDark);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="./assets/index-CoMTWcbG.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CIjX5upL.css">
+  <link rel="manifest" href="./manifest.webmanifest"></head>
+  <body class="bg-[#F8F9FB] text-zinc-900 dark:bg-[#0B0D11] dark:text-zinc-100 antialiased selection:bg-rose-500/20 selection:text-rose-500">
+    <div id="root"></div>
+    <!-- Shared status bar (project 0000). Template: ../shared/statusbar.js — edit there to update all apps.
+         Kept as a plain (non-module) external script so Vite does not bundle it; the path is mount-relative. -->
+    <script src="../shared/statusbar.js" defer></script>
+  </body>
+</html>
